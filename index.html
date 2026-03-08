@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多功能 SQL 產生平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Microsoft JhengHei', 'PingFang TC', sans-serif; }
+        
+        /* 動森風格 Active 狀態 */
+        .nav-item.active {
+            background-color: #98B4A6; /* 莫蘭迪綠 */
+            color: #FDFBF5; /* 奶油白文字 */
+            box-shadow: 0 4px 10px rgba(152, 180, 166, 0.4); /* 柔和綠色陰影 */
+            font-weight: bold;
+        }
+        .nav-item.active .text-desc {
+            color: #E8F1ED; /* 淺綠白說明文字 */
+        }
+        
+        .code-block {
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        /* 隱藏元素 class */
+        .hidden-el { display: none; }
+        /* 複製成功動畫 */
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        .toast-bubble {
+            animation: fadeOut 1.5s forwards;
+            animation-delay: 0.5s;
+        }
+        /* 自定義捲軸 - 沙色系 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #E8E2D0;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #D6Ceb0;
+        }
+
+        /* 幽靈按鈕樣式 (資料清理頁面用) */
+        .btn-ghost {
+            background-color: transparent;
+            border: 1px solid #D6Ceb0;
+            color: #8C8475;
+            transition: all 0.2s;
+        }
+        .btn-ghost:hover {
+            background-color: #F0EFE9;
+            color: #6B5E4F;
+            border-color: #B8B0A0;
+        }
+
+        /* 渡渡航空藍按鈕 (系統設定頁面用) */
+        .btn-dodo {
+            background-color: #8FB8CA; /* 渡渡航空藍 */
+            color: #FFFFFF;
+            transition: all 0.2s;
+        }
+        .btn-dodo:hover {
+            background-color: #7A9EB0; /* 稍深一點的藍 */
+        }
+    </style>
+</head>
+<body class="bg-[#F7F5F0] h-screen flex overflow-hidden text-[#6B5E4F]">
+
+    <!-- 1. 左側導航選單 (風格改造) -->
+    <aside class="w-72 bg-[#FDFBF5] flex flex-col z-20 flex-shrink-0 border-r border-[#E8E2D0] shadow-[4px_0_20px_rgba(107,94,79,0.03)]">
+        <!-- Header 區塊：卡片式設計 -->
+        <div class="p-6 pb-2 flex-shrink-0">
+            <div class="bg-[#98B4A6] rounded-3xl p-5 text-[#FDFBF5] shadow-sm text-center">
+                <h1 class="text-xl font-bold tracking-wider">SQL 產生平台</h1>
+                <div class="flex items-center justify-center mt-2 opacity-90">
+                    <span class="bg-[#FDFBF5] text-[#98B4A6] text-[10px] px-2 py-0.5 rounded-full font-bold mr-2">V5.0</span>
+                    <p class="text-xs font-medium">🍃 總合堅果版</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <!-- (導航項目) -->
+            <button onclick="App.tabs.switch('invoice')" id="nav-invoice" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start group"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🧾</span><div class="flex flex-col"><span class="font-bold text-sm">補發票 (Insert)</span></div></button>
+            <button onclick="App.tabs.switch('mobile')" id="nav-mobile" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">📱</span><div class="flex flex-col"><span class="font-bold text-sm">網路訂單重新接單</span></div></button>
+            <button onclick="App.tabs.switch('orderno')" id="nav-orderno" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start group"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🔄</span><div class="flex flex-col"><span class="font-bold text-sm">變更帳單編號</span></div></button>
+            <button onclick="App.tabs.switch('payment')" id="nav-payment" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">💰</span><div class="flex flex-col"><span class="font-bold text-sm">變更付款方式</span></div></button>
+            <button onclick="App.tabs.switch('cancel')" id="nav-cancel" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🚫</span><div class="flex flex-col"><span class="font-bold text-sm">取消作廢</span></div></button>
+            <button onclick="App.tabs.switch('machine')" id="nav-machine" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🖥️</span><div class="flex flex-col"><span class="font-bold text-sm">變更結帳櫃台(Machine ID)</span></div></button>
+            <button onclick="App.tabs.switch('product')" id="nav-product" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🏷️</span><div class="flex flex-col"><span class="font-bold text-sm">工作單與標籤出單調整</span></div></button>
+            <button onclick="App.tabs.switch('sort')" id="nav-sort" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🔢</span><div class="flex flex-col"><span class="font-bold text-sm">更新商品顯示順序</span></div></button>
+            <button onclick="App.tabs.switch('straw')" id="nav-straw" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🥤</span><div class="flex flex-col"><span class="font-bold text-sm">吸管尺寸設定</span></div></button>
+            <button onclick="App.tabs.switch('remark')" id="nav-remark" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">💬</span><div class="flex flex-col"><span class="font-bold text-sm">商品專屬備註</span></div></button>
+            <button onclick="App.tabs.switch('fixinvoice')" id="nav-fixinvoice" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🔧</span><div class="flex flex-col"><span class="font-bold text-sm">變更發票內對應的帳單編號</span></div></button>
+            <button onclick="App.tabs.switch('stuck_invoice')" id="nav-stuck_invoice" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🛑</span><div class="flex flex-col"><span class="font-bold text-sm">發票號碼卡住</span></div></button>
+            <button onclick="App.tabs.switch('others')" id="nav-others" class="nav-item w-full text-left px-4 py-3 rounded-2xl transition-all duration-300 hover:bg-[#E8E2D0] hover:bg-opacity-50 text-[#6B5E4F] flex items-start mt-4 border-t-2 border-dashed border-[#E8E2D0] pt-4"><span class="mr-3 mt-0.5 text-lg filter sepia-[0.3]">🛠️</span><div class="flex flex-col"><span class="font-bold text-sm">其他 SQL (常用維護)</span></div></button>
+        </nav>
+        <div class="p-4 text-center text-xs text-[#9CA38F] flex-shrink-0">
+            &copy; 2026 SQL Tools
+        </div>
+    </aside>
+
+    <!-- 2. 右側主內容區 -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden w-full relative">
+        
+        <!-- 頂部資訊列 -->
+        <header class="bg-[#FDFBF5] border-b border-[#E8E2D0] h-16 flex items-center justify-between px-8 flex-shrink-0">
+            <h2 id="current-module-title" class="text-xl font-bold text-[#6B5E4F]">請選擇功能</h2>
+            <div class="text-sm text-[#8C8475] bg-[#E8E2D0] px-3 py-1 rounded-full">System Time: <span id="system-time" class="font-mono font-bold"></span></div>
+        </header>
+
+        <!-- 內容滾動區 -->
+        <div class="flex-1 overflow-y-auto p-8 bg-[#F7F5F0]">
+            <div class="max-w-5xl mx-auto space-y-6 pb-20">
+
+                <section id="module-invoice" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">🧾</span><h3 class="text-xl font-bold text-[#6B5E4F]">補發票資料 (Insert into orderinvoice)</h3></div><div class="mt-3 text-xs leading-relaxed space-y-2"><p class="text-red-500 font-bold bg-red-50 inline-block px-2 py-1 rounded-lg">* 需對應 Submitted 資料夾 XML 檔案內容</p><p class="text-[#6B5E4F] bg-[#FDFBF5] p-3 rounded-xl border border-[#E8E2D0]"><span class="font-bold text-[#98B4A6]">🍃 使用情境：</span>帳單明細瀏覽內已有入帳，Invoice 資料內也確認有發票開立紀錄，但是發票開立對帳表查不到發票開立紀錄，故需要補發票資料。</p></div></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 text-sm">
+                        <!-- 加入必填紅星 -->
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">帳單編號 (OrderNo) <span class="text-red-400">*</span></label><input type="text" id="inv_OrderNo" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="orderid (12碼)"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">發票號碼 (InvoiceNo) <span class="text-red-400">*</span></label><input type="text" id="inv_InvoiceNo" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="track+einvno (10碼)"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">結帳班別 (CheckoutShift) <span class="text-red-400">*</span></label><input type="text" id="inv_CheckoutShift" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="如: A"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">結帳帳號 (EmpCard) <span class="text-red-400">*</span></label><input type="text" id="inv_EmpCard" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="如: 888"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">結帳名稱 (EmpCardName) <span class="text-red-400">*</span></label><input type="text" id="inv_EmpCardName" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="如: BOSS"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">開立時間 (CheckoutTime) <span class="text-red-400">*</span></label><input type="text" id="inv_CheckoutTime" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="YYYY-MM-DD HH:mm:ss"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">總金額 (TotalAmount) <span class="text-red-400">*</span></label><input type="number" id="inv_TotalAmount" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">稅前金額 (BeforeTax) <span class="text-red-400">*</span></label><input type="number" id="inv_TotalAmountBeforeTax" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">稅額 (Tax) <span class="text-red-400">*</span></label><input type="number" id="inv_Tax" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">統編 (CompanyID)</label><input type="text" id="inv_CompanyID" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="buyervatid"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">機號 (MachineID)</label><input type="text" id="inv_MachineID" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="如: 2"></div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">檢查日期 (CheckoutDate)</label><input type="text" id="inv_CheckoutDate" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="如: 250511"></div>
+                        <div>
+                            <label class="block font-bold mb-1.5 text-[#8C8475]">是否作廢 (CancelInvoice)</label>
+                            <select id="inv_CancelInvoice" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" onchange="App.modules.invoice.toggleCancel()"><option value="N">N</option><option value="Y">Y</option></select>
+                        </div>
+                        <div id="div_CancelCardNo" class="hidden-el"><label class="block font-bold mb-1.5 text-[#8C8475]">作廢帳號 (CancelCardNo)</label><input type="text" id="inv_CancelCardNo" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"></div>
+                        <div>
+                            <label class="block font-bold mb-1.5 text-[#8C8475]">是否回傳 (SendServer)</label>
+                            <select id="inv_SendServer" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"><option value="N" selected>N</option><option value="Y">Y</option></select>
+                        </div>
+                         <div class="md:col-span-2">
+                            <label class="block font-bold mb-1.5 text-[#8C8475]">載具類型 (eInvoiceCarrierType)</label>
+                            <div class="flex gap-3">
+                                <select id="inv_eInvoiceCarrierType" class="w-1/2 border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" onchange="App.modules.invoice.toggleCarrier()"><option value="1">1 (紙本)</option><option value="2">2 (自然人憑證)</option><option value="3">3 (手機條碼)</option><option value="4">4 (愛心碼)</option><option value="5">5 (信用卡)</option><option value="6">6 (悠遊卡)</option><option value="7">7 (Icash)</option><option value="8">8 (一卡通)</option></select>
+                                <input type="text" id="inv_eInvoiceCarrierCode" class="w-1/2 border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition hidden-el" placeholder="載具號碼">
+                            </div>
+                         </div>
+                         <div>
+                            <label class="block font-bold mb-1.5 text-[#8C8475]">是否 KIOSK (FromKiosk)</label>
+                            <select id="inv_FromKiosk" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition"><option value="N">N</option><option value="Y">Y</option></select>
+                        </div>
+                    </div>
+                    <div class="mt-8 flex justify-end gap-2"><button onclick="App.modules.invoice.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-6 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold tracking-wide">產生 SQL</button><button onclick="App.modules.invoice.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.invoice.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div>
+                </section>
+                
+                <section id="module-orderno" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">🔄</span><h3 class="text-xl font-bold text-[#6B5E4F]">變更帳單編號 (Update OrderNo)</h3></div><div class="mt-3 text-xs leading-relaxed space-y-1"><p class="text-[#6B5E4F] bg-[#FDFBF5] p-3 rounded-xl border border-[#E8E2D0]"><span class="font-bold text-[#98B4A6]">🍃 使用情境：</span>網路訂單卡處理中，重新接單之後將發票號碼和新帳單整合</p></div></div><div class="space-y-5"><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0]"><label class="block font-bold text-[#6B5E4F] mb-3">是否為當日帳單？</label><select id="orderno_isToday" class="w-full p-2.5 border border-[#E8E2D0] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" onchange="App.modules.orderno.toggleFields()"><option value="是">是 (僅更新單號)</option><option value="否">否 (需補填班別時間等)</option></select></div><div class="grid grid-cols-1 md:grid-cols-2 gap-5"><div><label class="block font-bold mb-1.5 text-[#8C8475]">舊單號 (Old OrderNo) <span class="text-red-400">*</span></label><input type="text" id="orderno_old" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: 250808A00006 (12碼)"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">新單號 (New OrderNo) <span class="text-red-400">*</span></label><input type="text" id="orderno_new" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: 250808A00003 (12碼)"></div></div><div id="orderno_extraFields" class="hidden-el grid grid-cols-1 md:grid-cols-2 gap-5 bg-[#F7F5F0] p-5 rounded-2xl border border-[#E8E2D0]"><div class="md:col-span-2 text-sm text-[#98B4A6] font-bold border-b border-[#E8E2D0] pb-2 mb-2">非當日帳單需填寫以下資訊：</div><div><label class="block text-sm font-bold text-[#6B5E4F]">新班別 (Shift) <span class="text-red-400">*</span></label><input type="text" id="orderno_shift" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="例: A"></div><div><label class="block text-sm font-bold text-[#6B5E4F]">桌號名稱 (TableName) <span class="text-red-400">*</span></label><input type="text" id="orderno_tableName" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="例: 外送5"></div><div><label class="block text-sm font-bold text-[#6B5E4F]">開單時間 (OrderTime) <span class="text-red-400">*</span></label><input type="text" id="orderno_orderTime" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="2025-08-14 19:58:59"></div><div><label class="block text-sm font-bold text-[#6B5E4F]">結帳時間 (CheckoutTime) <span class="text-red-400">*</span></label><input type="text" id="orderno_checkoutTime" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="2025-08-15 19:59:53"></div><div><label class="block text-sm font-bold text-[#6B5E4F]">結帳日期 (CheckoutDate) <span class="text-red-400">*</span></label><input type="text" id="orderno_checkoutDate" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="例: 250814"></div><div><label class="block text-sm font-bold text-[#6B5E4F]">建立日期 (CreateDate) <span class="text-red-400">*</span></label><input type="text" id="orderno_createDate" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="例: 250814"></div></div></div><div class="mt-8 flex justify-end gap-2"><button onclick="App.modules.orderno.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-6 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold tracking-wide">產生 SQL</button><button onclick="App.modules.orderno.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.orderno.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div>
+                </section>
+
+                <section id="module-payment" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 flex space-x-4 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">💰</span><h3 class="text-xl font-bold text-[#6B5E4F]">變更付款方式</h3></div></div>
+                    <div class="mt-3 text-xs leading-relaxed space-y-1 mb-4">
+                        <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-red-800 text-sm mb-2">
+                            ⚠️ 注意：需先透過帳單明細瀏覽確認是否不只一個付款方式，若不只一個付款方式，需填欲修改之付款方式的付款順序 (SeqNo)
+                        </div>
+                    </div>
+                    <div id="submodule-pay" class="space-y-5"><div><label class="block font-bold mb-1.5 text-[#8C8475]">付款方式 (PaymentKind) <span class="text-red-400">*</span></label><div class="relative mb-2"><div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><span class="text-gray-400">🔍</span></div><input type="text" id="pay_kind_search" class="w-full border border-[#E8E2D0] rounded-xl py-2 pl-9 pr-3 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6] text-sm transition" placeholder="搜尋名稱 or 代碼..." oninput="App.modules.payment.filterPaymentOptions()"></div><select id="pay_kind" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" onchange="App.modules.payment.toggleAlias()"><option value="">--請選擇付款方式--</option><option value="1">1 - 現金 Cash</option><option value="2">2 - 儲值/預收 StoreValue</option><option value="3">3 - 會員簽帳 Outstanding</option><option value="4">4 - 支票 Check</option><option value="5">5 - 信用卡 CreditCard</option><option value="6">6 - 電子錢包 OtherCard</option><option value="7">7 - 禮券 Coupon</option><option value="8">8 - 其他票券 OtherCoupon</option><option value="9">9 - 快錢 KuaiQian</option><option value="10">10 - 餘額券 ChangeCoupon</option><option value="11">11 - 網路會員儲值 WebMemberStoreValue</option><option value="12">12 - 網路會員積點 WebMemberBonus</option><option value="13">13 - 溢收 Overpay</option><option value="14">14 - 線上票券 OnlineCoupon</option><option value="15">15 - Blink集點金 Blink</option><option value="16">16 - 微信支付 WeChatPay</option><option value="17">17 - 微信會員儲值 WeChatMemberStoreValue</option><option value="18">18 - 歐付寶 AllPay</option><option value="19">19 - 精誠喜客券 LINEGift</option><option value="20">20 - 支付寶 AliPay</option><option value="21">21 - 百度百付寶 BaifubaoPay</option><option value="22">22 - 蘇寧易付寶 YifubaoPay</option><option value="23">23 - QQ錢包 QQPay</option><option value="24">24 - 天翼翼支付 BestPay</option><option value="25">25 - 京東錢包 JDPay</option><option value="26">26 - 行動支付優惠折扣 PhonePayDiscount</option><option value="27">27 - 掃碼支付 BankDriectPay</option><option value="28">28 - 食在麻吉線上金流 eatHereOnLinePay</option><option value="29">29 - 餓了麼在?支付 eleOnlinePay</option><option value="30">30 - 美團在?支付 meituanOnlinePay</option><option value="31">31 - 百度外賣在?支付 BaiduwaimaiOnlinePay</option><option value="32">32 - 外賣平台優惠折扣 WaimaiSupportDiscount</option><option value="33">33 - 悠遊卡 EasyCard</option><option value="34">34 - iCash愛金卡 iCash</option><option value="35">35 - 一卡通 iPASS</option><option value="36">36 - HappyCash遠鑫卡 HappyCash</option><option value="37">37 - 玉山掃碼付 ECRBarCode</option><option value="38">38 - 微信訂餐在?支付 WeChatOrderOnlinePay</option><option value="39">39 - 微信訂餐優惠折扣 WeChatOrderSupportDiscount</option><option value="40">40 - LINE Pay LINEPay</option><option value="41">41 - 外送平台 ThirdPartyDelivery (需填 Alias)</option><option value="42">42 - 街口支付 JKOSPay</option><option value="43">43 - Uber Eats線上支付</option><option value="44">44 - Nidin線上支付 NidinOnlinePay</option><option value="45">45 - LINE Pay(Kiosk) LINEPay_Kiosk</option><option value="46">46 - 信用卡(Kiosk) CreditCard_Kiosk</option><option value="47">47 - 悠遊卡(Kiosk) EasyCard_Kiosk</option><option value="48">48 - iCash愛金卡(Kiosk) iCash_Kiosk</option><option value="49">49 - 一卡通(Kiosk) iPASS_Kiosk</option><option value="50">50 - HappyCash遠鑫卡(Kiosk) HappyCash_Kiosk</option><option value="51">51 - 蝦皮電子票券 ShopeeTicket</option><option value="54">54 - 全支付</option><option value="58">58 - 台灣Pay TWPay</option><option value="59">59 - iCashPay</option><option value="60">60 - 現金_Kiosk</option><option value="61">61 - 街口支付(Kiosk) JKOSPay_Kiosk</option><option value="62">62 - 全支付(Kiosk) PxPay_Kiosk</option><option value="63">63 - 悠遊付(Kiosk) UUPay_Kiosk</option><option value="64">64 - 快一點線上支付 QuickOrderOnlinePay</option><option value="65">65 - 台灣pay(Kiosk) TWPay_Kiosk</option><option value="66">66 - 12CM優惠券</option><option value="67">67 - 全通路會員紅利</option><option value="68">68 - 12CM儲值券</option><option value="69">69 - iPass Money (串接)</option><option value="70">70 - 你訂會員電子票券</option><option value="71">71 - iPass Money (kiosk)</option></select></div><div id="div_alias" class="hidden-el bg-[#FDFBF5] p-3 border border-dashed border-[#E8E2D0] rounded-xl"><label class="block font-bold mb-1.5 text-[#8C8475]">AliasName (平台名稱)</label><input type="text" id="pay_alias" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white" placeholder="例: Foodpanda"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">訂單編號 (多筆用 , 分隔) <span class="text-red-400">*</span></label><input type="text" id="pay_ordernos" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="250801B00084,250801B00085 (需為12碼)"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">發票號碼 (多筆用 , 分隔) <span class="text-red-400">*</span></label><input type="text" id="pay_invoicenos" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="RK82811425,RK82811426 (需為10碼)"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">付款順序 (SeqNo) <span class="text-gray-400 font-normal">(選填)</span></label><input type="text" id="pay_seqno" class="w-1/3 border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: 1"></div><div class="flex justify-end pt-4 gap-2"><button onclick="App.modules.payment.generatePay()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生付款 SQL</button><button onclick="App.modules.payment.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.payment.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div></section>
+                
+                <section id="module-cancel" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">🚫</span><h3 class="text-xl font-bold text-[#6B5E4F]">取消作廢</h3></div><p class="text-sm text-[#8C8475]">將發票狀態改為「未作廢」，並重置上傳狀態。</p></div>
+                    <div class="space-y-5">
+                        <div class="bg-red-50 p-4 rounded-2xl border border-red-100 text-red-800 text-sm mb-2">
+                            ⚠️ 注意：<br>
+                            1. 此SQL只對於POS機上的報表，將已作廢的發票恢復為開立狀態，並不會異動於加值中心與財政部資訊。<br>
+                            2. 故需要提供給美麗加值中心發票異動申請書，才有辦法將財政部上的發票註銷，再重新上傳開立。<br>
+                            3. 雲端發票我方僅執行POS機上SQL異動，重新上傳財政部須由門市自行到雲端加值中心後台操作。<br>
+                            4. 美麗收件為單月份10號以前
+                        </div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">訂單編號 (多筆用 , 分隔) <span class="text-red-400">*</span></label><input type="text" id="cancel_ordernos" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5]" placeholder="250801B00084,250801B00085 (需為12碼)"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">發票號碼 (多筆用 , 分隔) <span class="text-red-400">*</span></label><input type="text" id="cancel_invoicenos" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5]" placeholder="RK82811425,RK82811426 (需為10碼)"></div><div class="flex justify-end pt-4 gap-2"><button onclick="App.modules.cancel.generate()" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生取消作廢 SQL</button><button onclick="App.modules.cancel.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.cancel.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div>
+                </section>
+                
+                <section id="module-machine" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]"><div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">🖥️</span><h3 class="text-xl font-bold text-[#6B5E4F]">修改結帳櫃台 (MachineID)</h3></div></div><div class="space-y-5"><div class="grid grid-cols-2 gap-5"><div><label class="block font-bold mb-1.5 text-[#8C8475]">原始 MachineID (Where)</label><select id="mac_old" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5]"><option value="">不指定 (所有符合訂單)</option><option value="empty">空值 (MachineID='')</option><option value="1">1</option><option value="2">2</option></select></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">新 MachineID (Set)</label><select id="mac_new" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5]"><option value="">空值</option><option value="1">1</option><option value="2">2</option></select></div></div><div class="border-t border-[#E8E2D0] pt-5"><label class="block font-bold mb-3 text-[#6B5E4F]">篩選方式：</label><div class="flex items-center space-x-6 mb-3"><label class="flex items-center cursor-pointer"><input type="radio" name="mac_mode" value="month" onchange="App.modules.machine.toggleMode()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">月份模式 (4碼)</span></label><label class="flex items-center cursor-pointer"><input type="radio" name="mac_mode" value="date" checked onchange="App.modules.machine.toggleMode()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">日期模式 (6碼)</span></label><label class="flex items-center cursor-pointer"><input type="radio" name="mac_mode" value="list" onchange="App.modules.machine.toggleMode()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">完整訂單編號</span></label></div><textarea id="mac_input" rows="3" class="w-full border border-[#E8E2D0] rounded-xl p-3 font-mono bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="請輸入... (多筆請用 ; 分隔)"></textarea><p id="mac_hint" class="text-xs text-[#9CA38F] mt-2 ml-1">請輸入訂單前 6 碼，例如：250701;250702</p></div><div class="flex justify-end pt-4 gap-2"><button onclick="App.modules.machine.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button><button onclick="App.modules.machine.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.machine.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div></section>
+                
+                <section id="module-product" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]"><div class="mb-6 flex items-center justify-between border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2"><span class="text-2xl">🏷️</span><h3 class="text-xl font-bold text-[#6B5E4F]">工作單與標籤出單調整</h3></div></div><div class="flex space-x-4 mb-6 border-b border-[#E8E2D0] pb-2"><button onclick="App.modules.product.switchTab('receipt')" id="tab-prod-receipt" class="font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition">工作單 (Receipt)</button><button onclick="App.modules.product.switchTab('label')" id="tab-prod-label" class="font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition">標籤 (Label)</button></div><div id="prod-receipt-panel" class="space-y-6"><div class="bg-[#FDFBF5] p-6 rounded-2xl border border-[#E8E2D0]"><h4 class="font-bold text-[#98B4A6] mb-4">出單機設定 (Receipt)</h4><div class="mb-5"><label class="block font-bold mb-2 text-[#8C8475]">出單機編號 (Location)</label><div id="prod_loc_container" class="space-y-2 mb-2"><div class="flex gap-2"><input type="text" name="prod_loc" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：1"><button onclick="App.modules.product.removeInput(this)" class="px-3 text-[#9CA38F] hover:text-red-400">➖</button></div></div><button onclick="App.modules.product.addInput('loc')" class="text-xs bg-[#E8E2D0] hover:bg-[#D6Ceb0] text-[#6B5E4F] px-3 py-1.5 rounded-lg transition font-bold">＋ 新增出單機</button><p class="text-xs text-[#9CA38F] mt-2">可設定多台出單機，編號請參考資料管理>系統環境基本資料>出單機資料維護的編號(EX:櫃台=1，煎台=2，切烤=3)</p></div><div class="mb-2"><label class="block font-bold mb-2 text-[#8C8475]">出單類別 (SendOrderType)</label><div id="prod_type_container" class="space-y-2 mb-2"><div class="flex gap-2"><select name="prod_type" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]"><option value="1">1 = 一項一單</option><option value="2">2 = 一類一單</option><option value="3">3 = 一機一單</option><option value="4">4 = 一套一單</option></select><button onclick="App.modules.product.removeInput(this)" class="px-3 text-[#9CA38F] hover:text-red-400">➖</button></div></div><button onclick="App.modules.product.addInput('type')" class="text-xs bg-[#E8E2D0] hover:bg-[#D6Ceb0] text-[#6B5E4F] px-3 py-1.5 rounded-lg transition font-bold">＋ 新增出單類別</button></div><div class="mt-5"><label class="block font-bold mb-2 text-[#8C8475]">出單類別編號 (PrintCat_ID)</label><input type="text" id="prod_printcat" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：1 (需填入出單類別編號)"></div></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">指定商品類別 (cat_ID) <span class="text-[#9CA38F] font-normal">(選填，多筆請用逗號分隔)</span></label><textarea id="prod_receipt_cats" rows="3" class="w-full border border-[#E8E2D0] rounded-xl p-3 font-mono bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：A,B,C..."></textarea></div><div class="flex justify-end pt-2 gap-2"><button onclick="App.modules.product.generateReceipt()" class="bg-[#86A395] hover:bg-[#729181] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生出單機 SQL</button><button onclick="App.modules.product.download('receipt', 'win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.product.download('receipt', 'win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div><div id="prod-label-panel" class="hidden-el space-y-6"><div class="bg-[#FDFBF5] p-6 rounded-2xl border border-[#E8E2D0]"><h4 class="font-bold text-[#98B4A6] mb-4">標籤設定 (Label)</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5"><div><label class="block font-bold mb-1.5 text-[#8C8475]">標籤列印方式</label><select id="prod_label_mode" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white"><option value="">--- 不修改 ---</option><option value="1">1 = 多項多張出標籤</option><option value="2">2 = 多項單張出標籤</option></select></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">標籤列印位置 (Printer_ID)</label><input type="text" id="prod_printer_id" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white" placeholder="輸入標籤機代號"><p class="text-xs text-[#9CA38F] mt-1">可設定多台標籤機，編號請參考資料管理>系統環境基本資料>標籤機資料維護的編號(EX:吧檯=1，廚房=2)</p></div></div><div class="grid grid-cols-3 gap-3"><div><label class="block text-xs font-bold mb-1 text-[#8C8475]">外帶 (OutsideLabel)</label><select id="prod_label_outside" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white text-sm"><option value="">-不改-</option><option value="Y">是 (Y)</option><option value="N">否 (N)</option></select></div><div><label class="block text-xs font-bold mb-1 text-[#8C8475]">內用 (InsideLabel)</label><select id="prod_label_inside" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white text-sm"><option value="">-不改-</option><option value="Y">是 (Y)</option><option value="N">否 (N)</option></select></div><div><label class="block text-xs font-bold mb-1 text-[#8C8475]">外送 (TakeOutLabel)</label><select id="prod_label_takeout" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white text-sm"><option value="">-不改-</option><option value="Y">是 (Y)</option><option value="N">否 (N)</option></select></div></div></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">指定類別 (cat_ID) <span class="text-[#9CA38F] font-normal">(針對上方標籤設定生效)</span></label><textarea id="prod_label_cats" rows="3" class="w-full border border-[#E8E2D0] rounded-xl p-3 font-mono bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：A,B,C..."></textarea></div><div class="flex justify-end pt-2 gap-2"><button onclick="App.modules.product.generateLabel()" class="bg-[#86A395] hover:bg-[#729181] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生標籤機 SQL</button><button onclick="App.modules.product.download('label', 'win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.product.download('label', 'win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div></section>
+                <section id="module-fixinvoice" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]"><div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">🔧</span><h3 class="text-xl font-bold text-[#6B5E4F]">發票對應帳單修正</h3></div><p class="text-sm text-[#8C8475]">修正 OrderInvoice 中的 OrderNo，並可一併更新載具資訊。</p></div><div class="grid grid-cols-1 gap-5 max-w-lg"><div><label class="block font-bold mb-1.5 text-[#8C8475]">正確的帳單編號 (OrderNo) <span class="text-red-400">*</span></label><input type="text" id="fix_orderno" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: 250103A00085 (12碼)"></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">要修正的發票號碼 (InvoiceNo) <span class="text-red-400">*</span></label><input type="text" id="fix_invoiceno" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: KH14847498 (10碼)"></div><div class="bg-[#FDFBF5] p-4 rounded-2xl border border-[#E8E2D0]"><label class="flex items-center mb-2 cursor-pointer"><input type="checkbox" id="fix_hasCarrier" onchange="App.modules.fixinvoice.toggle()" class="mr-2 text-[#98B4A6] focus:ring-[#98B4A6]"><span class="font-bold text-[#6B5E4F]">更新載具資訊？</span></label><div id="fix_carrier_div" class="hidden-el pl-6 mt-2"><label class="block text-sm mb-1.5 text-[#8C8475]">載具號碼 (eInvoiceCarrierCode) <span class="text-red-400">*</span></label><input type="text" id="fix_carrierCode" class="w-full border border-[#E8E2D0] rounded-xl p-2 bg-white" placeholder="例: /N6AXQV2"></div></div></div><div class="flex justify-end pt-6 gap-2"><button onclick="App.modules.fixinvoice.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button><button onclick="App.modules.fixinvoice.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.fixinvoice.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></section>
+                
+                <section id="module-mobile" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2 mb-2"><span class="text-2xl">📱</span><h3 class="text-xl font-bold text-[#6B5E4F]">網路訂單重新接單 (MobileOrder)</h3></div></div>
+                    <div class="space-y-5">
+                        <div class="bg-[#FDFBF5] p-4 rounded-xl border border-[#E8E2D0] text-sm text-[#8C8475] leading-relaxed">
+                            <span class="font-bold text-[#98B4A6]">🍃 使用情境：</span><br>
+                            1. 網路訂單卡處理中，先至系統設定 > 發票/服務費，將發票功能關閉，再重新接單。若無關閉，會再開出一張新的發票號碼。<br>
+                            2. 重接接單之後，需要透過變更帳單編號將發票號碼和新帳單整合。
+                        </div>
+                        <div><label class="block font-bold mb-1.5 text-[#8C8475]">設定狀態 (MobileOrderStatus) <span class="text-red-400">*</span></label><select id="mob_status" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]"><option value="0">0 = 未處理 (重新接單)</option><option value="1">1 = 已接單</option><option value="2">2 = 已拒單</option><option value="3">3 = 消費者取消</option><option value="4">4 = 逾時取消</option><option value="5">5 = 已通知 (FP專用)</option></select></div><div><label class="block font-bold mb-1.5 text-[#8C8475]">來源單號 (MobileOrderSrcNo) <span class="text-red-400">*</span></label><textarea id="mob_srcs" rows="5" class="w-full border border-[#E8E2D0] rounded-xl p-3 font-mono bg-[#FDFBF5] focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例: f4ol-2506-opz4, abc-1234-xyz9 (多筆請用逗號分隔)"></textarea></div><div class="flex justify-end pt-4 gap-2"><button onclick="App.modules.mobile.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button><button onclick="App.modules.mobile.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.mobile.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div>
+                </section>
+                <section id="module-sort" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]"><div class="mb-6 flex items-center justify-between border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2"><span class="text-2xl">🔢</span><h3 class="text-xl font-bold text-[#6B5E4F]">更新商品顯示順序</h3></div></div><div class="space-y-6"><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0]"><label class="block font-bold text-[#6B5E4F] mb-3 text-center">選擇修改模式</label><div class="flex justify-center gap-6"><label class="flex items-center cursor-pointer"><input type="radio" name="sort_mode" value="product" checked onchange="App.modules.sort.switchMode()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F] font-bold">修改商品順序</span></label><label class="flex items-center cursor-pointer"><input type="radio" name="sort_mode" value="category" onchange="App.modules.sort.switchMode()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F] font-bold">修改類別順序</span></label></div></div><div id="sort_inputs_container" class="space-y-3"><!-- 動態欄位區 --></div><div class="flex gap-4"><button onclick="App.modules.sort.addRow()" class="flex-1 bg-[#86A395] hover:bg-[#729181] text-white py-2.5 rounded-xl font-bold transition">＋ 新增</button><button onclick="App.modules.sort.removeRow()" class="flex-1 bg-[#E08D8D] hover:bg-[#C27B7B] text-white py-2.5 rounded-xl font-bold transition">－ 刪除</button></div><div class="flex justify-end pt-4 gap-2"><button onclick="App.modules.sort.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button><button onclick="App.modules.sort.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.sort.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div></section>
+                <section id="module-straw" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]"><div class="mb-6 flex items-center justify-between border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2"><span class="text-2xl">🥤</span><h3 class="text-xl font-bold text-[#6B5E4F]">吸管尺寸設定</h3></div></div><div class="space-y-6"><div class="bg-[#FDFBF5] p-6 rounded-2xl border border-[#E8E2D0]"><label class="block font-bold mb-2 text-[#8C8475]">吸管尺寸 <span class="text-red-400">*</span></label><select id="straw_size" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]"><option value="1">無</option><option value="2">小</option><option value="4">中</option><option value="3">大</option></select><label class="block font-bold mt-5 mb-2 text-[#8C8475]">更新方式</label><div class="flex gap-6 mb-4"><label class="flex items-center cursor-pointer"><input type="radio" name="straw_mode" value="product" checked onclick="App.modules.straw.toggleInput()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">依商品</span></label><label class="flex items-center cursor-pointer"><input type="radio" name="straw_mode" value="category" onclick="App.modules.straw.toggleInput()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">依類別</span></label><label class="flex items-center cursor-pointer"><input type="radio" name="straw_mode" value="all" onclick="App.modules.straw.toggleInput()" class="text-[#98B4A6] focus:ring-[#98B4A6]"><span class="ml-2 text-[#6B5E4F]">全品項</span></label></div><div id="straw_product_input"><label class="block text-sm text-[#9CA38F] mb-1">商品編號（多筆請用 , 分隔） <span class="text-red-400">*</span></label><input type="text" id="straw_product_ids" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：A001,A002"></div><div id="straw_category_input" class="hidden-el"><label class="block text-sm text-[#9CA38F] mb-1">類別編號（多筆請用 , 分隔） <span class="text-red-400">*</span></label><input type="text" id="straw_category_ids" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：C01,C02"></div></div><div class="flex justify-end pt-2 gap-2"><button onclick="App.modules.straw.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button><button onclick="App.modules.straw.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button><button onclick="App.modules.straw.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button></div></div></section>
+
+                <section id="module-stuck_invoice" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-2xl">🛑</span>
+                            <h3 class="text-xl font-bold text-[#6B5E4F]">發票號碼卡住</h3>
+                        </div>
+                        <div class="mt-3 text-xs leading-relaxed space-y-1">
+                             <p class="text-[#6B5E4F] bg-[#FDFBF5] p-3 rounded-xl border border-[#E8E2D0]">
+                                <span class="font-bold text-[#98B4A6]">🍃 使用情境：</span>常駐給號和發票報表內上一張發票號碼重複​
+                            </p>
+                            <div class="bg-red-50 p-4 rounded-xl border border-red-100 text-red-800 mt-2">
+                                ⚠️ 需確認排除方式：​<br>
+                                1. 確認Invoice資料夾內Printed(列印紙本發票)和submitted(使用載具)​是否有這筆發票資訊，且此帳單在發票開立對帳表只有顯示這張發票​。<br>
+                                --> 若無這筆發票資訊，代表沒有開立成功​，請刪除此發票號碼並變更帳單為未開立發票狀態。​<br>
+                                --> 若此帳單在「發票開立對帳表」顯示 ​<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;(1) 只有對應1張發票號碼，where後面條件可以使用「帳單編號」或「發票號碼」​<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;(2) 有對應2張發票號碼，where後面條件只能使用「發票號碼」​
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block font-bold mb-2 text-[#8C8475]">帳單編號 (OrderNo) <span class="text-red-400">*</span></label>
+                            <input type="text" id="stuck_orderno" class="w-full border border-[#E8E2D0] rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="例如：250103A00085 (12碼)">
+                        </div>
+
+                        <div class="flex justify-end pt-4 gap-2">
+                            <button onclick="App.modules.stuck_invoice.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button>
+                            <button onclick="App.modules.stuck_invoice.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button>
+                            <button onclick="App.modules.stuck_invoice.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 模組 12：商品專屬備註 (Remark) -->
+                <section id="module-remark" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <div class="mb-6 border-b border-[#F0EFE9] pb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-2xl">💬</span>
+                            <h3 class="text-xl font-bold text-[#6B5E4F]">商品專屬備註 (Product_Remark)</h3>
+                        </div>
+                        <div class="mt-3 text-xs leading-relaxed space-y-1">
+                             <p class="text-[#6B5E4F] bg-[#FDFBF5] p-3 rounded-xl border border-[#E8E2D0]">
+                                <span class="font-bold text-[#98B4A6]">🍃 使用情境：</span>此為專屬於商品的專屬備註，非一般備註。
+                            </p>
+                        </div>
+                    </div>
+                    <div class="space-y-5">
+                        <div class="bg-[#FDFBF5] p-6 rounded-2xl border border-[#E8E2D0]">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                <div>
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">商品編號 (Pro_ID) <span class="text-red-400">*</span></label>
+                                    <input type="text" id="remark_proId" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="例如：B001">
+                                </div>
+                                <div class="row-span-2">
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">備註名稱 (Remark) <span class="text-red-400">*</span></label>
+                                    <!-- 調整高度為一般輸入框大小，避免擋到下方 -->
+                                    <textarea id="remark_remarks" class="w-full h-32 border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition resize-none" placeholder="多筆可用換行分隔&#10;例如：&#10;全糖&#10;少糖&#10;半糖"></textarea>
+                                </div>
+                                <div>
+                                    <!-- 新增預覽按鈕顏色欄位 -->
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">預覽按鈕顏色 (RemarkColor) <span class="text-red-400">*</span></label>
+                                    <div class="flex items-center gap-3">
+                                        <input type="text" id="remark_color" class="flex-1 border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" value="-986896" oninput="App.modules.remark.updateColorPreview()">
+                                        <div id="remark_color_preview" class="w-10 h-10 rounded-lg border border-gray-300 shadow-inner" style="background-color: #F0F0F0;"></div>
+                                    </div>
+                                    <p class="text-[10px] text-[#9CA38F] mt-1">請輸入 Windows Color Int 編碼</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                <div>
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">群組名稱 (GroupName) <span class="text-red-400">*</span></label>
+                                    <input type="text" id="remark_groupName" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="例如：甜度">
+                                    <p class="text-xs text-[#9CA38F] mt-1">※ 舊邏輯：輸入「冰量」時顏色自動變，現已改為依照上方顏色欄位為主</p>
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">群組號碼 (Group) <span class="text-red-400">*</span></label>
+                                    <input type="text" id="remark_groupNo" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition" placeholder="例如：1">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">是否必選 (GroupNeedChooseForMobile)</label>
+                                    <select id="remark_mustChoose" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition">
+                                        <option value="Y">是 (Y)</option>
+                                        <option value="N">否 (N)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1.5 text-[#8C8475]">是否可網購 (IsUseInMobileOrder)</label>
+                                    <select id="remark_mobile" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6] transition">
+                                        <option value="Y">是 (Y)</option>
+                                        <option value="N">否 (N)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-4 gap-2">
+                            <button onclick="App.modules.remark.generate()" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-8 py-3 rounded-2xl shadow-md transition transform active:scale-95 font-bold">產生 SQL</button>
+                            <button onclick="App.modules.remark.download('win7')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win7 SQL</button>
+                            <button onclick="App.modules.remark.download('win10')" class="bg-[#D6Ceb0] hover:bg-[#C2BA9E] text-[#6B5E4F] px-4 py-3 rounded-2xl shadow-sm font-bold text-sm transition transform active:scale-95">Win10 SQL</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== 模組 8：其他 SQL (Others) ==================== -->
+                <section id="module-others" class="module-section hidden bg-white p-8 rounded-3xl shadow-[0_4px_20px_rgba(107,94,79,0.05)] border border-[#E8E2D0]">
+                    <!-- (內容維持，略過更新未要求的地方，保持之前的排版) -->
+                    <div class="mb-6 flex items-center justify-between border-b border-[#F0EFE9] pb-4"><div class="flex items-center gap-2"><span class="text-2xl">🛠️</span><h3 class="text-xl font-bold text-[#6B5E4F]">其他 SQL (常用維護)</h3></div></div><div class="flex space-x-4 mb-6 border-b border-[#E8E2D0] pb-2"><button onclick="App.modules.others.switchTab('cleanup')" id="tab-others-cleanup" class="font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition">資料清理</button><button onclick="App.modules.others.switchTab('system')" id="tab-others-system" class="font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition">系統設定</button></div><div id="others-cleanup-panel" class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除所有加料</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 PlusFlavor 資料表</p><button onclick="App.modules.others.copy(12)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-12" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(12, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(12, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除所有會員</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 Member 資料表</p><button onclick="App.modules.others.copy(13)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-13" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(13, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(13, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除糖量設定</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 product_sugar 資料表</p><button onclick="App.modules.others.copy(14)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-14" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(14, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(14, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除費用支出資料 (全部)</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 NewExpense 資料表中的所有資料</p><button onclick="App.modules.others.copy(2)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-2" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(2, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(2, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除會員相關資料</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 Member, MemberCard, Storevalue, Bonus 等資料</p><button onclick="App.modules.others.copy(3)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-3" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(3, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(3, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除暫結 (含預約單)</h4><p class="text-xs text-[#8C8475] mb-4 h-10">刪除 tmpOrderLists 與 tmpOrderDetail</p><button onclick="App.modules.others.copy(4)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📄 複製</span><span id="toast-4" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(4, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(4, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除費用支出 (特定項目)</h4><p class="text-xs text-[#8C8475] mb-2">請輸入項目名稱 (多筆用逗號隔開) <span class="text-red-400">*</span></p><input type="text" id="expense_items" class="w-full border border-[#E8E2D0] rounded-lg p-1.5 text-xs mb-2 bg-white" placeholder="例如: 清潔劑, 糖液"><button onclick="App.modules.others.copy(7)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2 rounded-lg text-xs font-bold transition relative mb-2"><span>📄 產生並複製 SQL</span><span id="toast-7" class="absolute -top-8 right-0 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(7, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(7, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">清除費用支出 (特定日期前)</h4><p class="text-xs text-[#8C8475] mb-2">刪除指定日期(含)以前的資料 <span class="text-red-400">*</span></p><input type="date" id="expense_date" class="w-full border border-[#E8E2D0] rounded-lg p-1.5 text-xs mb-2 bg-white"><button onclick="App.modules.others.copy(8)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2 rounded-lg text-xs font-bold transition relative mb-2"><span>📄 產生並複製 SQL</span><span id="toast-8" class="absolute -top-8 right-0 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(8, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(8, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div></div><div id="others-system-panel" class="hidden-el grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">鎖定單機權限 (單機上總部)</h4><p class="text-xs text-[#8C8475] mb-4 h-10">將 Level_Control 中所有權限欄位設為 N (除了 A 級別)</p><button onclick="App.modules.others.copy(1)" class="w-full bg-[#98B4A6] hover:bg-[#86A395] text-white py-2.5 rounded-xl shadow-sm text-sm flex items-center justify-center relative font-bold transition mb-2"><span>📋 複製</span><span id="toast-1" class="absolute -top-8 bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><div class="flex gap-2"><button onclick="App.modules.others.download(1, 'win7')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win7</button><button onclick="App.modules.others.download(1, 'win10')" class="flex-1 btn-dodo py-1.5 rounded-lg text-xs font-bold">Win10</button></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">更新桌控服務費</h4><p class="text-xs text-[#8C8475] mb-3">更新 tablestate 的 PlusServiceFee</p><div class="flex items-center justify-between mb-2 pb-2 border-b border-[#E8E2D0] border-dashed"><span class="text-sm font-bold text-[#86A395]">開啟 (Y)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(5, 'Y')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-5-Y" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(5, 'win7', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(5, 'win10', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div><div class="flex items-center justify-between"><span class="text-sm font-bold text-[#9CA38F]">關閉 (N)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(5, 'N')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-5-N" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(5, 'win7', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(5, 'win10', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">更新商品服務費</h4><p class="text-xs text-[#8C8475] mb-3">更新 product 的 ServiceCharge</p><div class="flex items-center justify-between mb-2 pb-2 border-b border-[#E8E2D0] border-dashed"><span class="text-sm font-bold text-[#86A395]">開啟 (Y)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(6, 'Y')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-6-Y" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(6, 'win7', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(6, 'win10', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div><div class="flex items-center justify-between"><span class="text-sm font-bold text-[#9CA38F]">關閉 (N)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(6, 'N')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-6-N" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(6, 'win7', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(6, 'win10', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">開啟總單數量統計</h4><p class="text-xs text-[#8C8475] mb-3">IncludeBillItemCount</p><div class="flex items-center justify-between mb-2 pb-2 border-b border-[#E8E2D0] border-dashed"><span class="text-sm font-bold text-[#86A395]">開啟 (Y)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(9, 'Y')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-9-Y" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(9, 'win7', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(9, 'win10', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div><div class="flex items-center justify-between"><span class="text-sm font-bold text-[#9CA38F]">關閉 (N)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(9, 'N')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-9-N" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(9, 'win7', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(9, 'win10', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">開啟納入銷售排行</h4><p class="text-xs text-[#8C8475] mb-3">IncludeRanking</p><div class="flex items-center justify-between mb-2 pb-2 border-b border-[#E8E2D0] border-dashed"><span class="text-sm font-bold text-[#86A395]">開啟 (Y)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(10, 'Y')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-10-Y" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(10, 'win7', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(10, 'win10', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div><div class="flex items-center justify-between"><span class="text-sm font-bold text-[#9CA38F]">關閉 (N)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(10, 'N')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-10-N" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(10, 'win7', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(10, 'win10', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div></div><div class="bg-[#FDFBF5] p-5 rounded-2xl border border-[#E8E2D0] hover:shadow-md transition-all hover:-translate-y-1 duration-300"><h4 class="font-bold text-[#6B5E4F] mb-2">開啟買 N 送一</h4><p class="text-xs text-[#8C8475] mb-3">BeOnePlusOne</p><div class="flex items-center justify-between mb-2 pb-2 border-b border-[#E8E2D0] border-dashed"><span class="text-sm font-bold text-[#86A395]">開啟 (Y)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(11, 'Y')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-11-Y" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(11, 'win7', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(11, 'win10', 'Y')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div><div class="flex items-center justify-between"><span class="text-sm font-bold text-[#9CA38F]">關閉 (N)</span><div class="flex gap-1 items-center"><button onclick="App.modules.others.copy(11, 'N')" class="bg-[#98B4A6] hover:bg-[#86A395] text-white px-3 py-1.5 rounded-lg text-xs transition relative group font-bold">📋 複製 <span id="toast-11-N" class="absolute -top-8 left-1/2 -translate-x-1/2 w-16 bg-[#6B5E4F] text-white rounded-full opacity-0 shadow-lg pointer-events-none transition-all duration-300">已複製!</span></button><button onclick="App.modules.others.download(11, 'win7', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win7</button><button onclick="App.modules.others.download(11, 'win10', 'N')" class="btn-dodo px-2 py-1.5 rounded-lg text-[10px] font-bold">Win10</button></div></div></div></div></section>
+
+            </div>
+        </div>
+
+        <!-- 3. 固定底部的輸出區 -->
+        <div id="output-area" class="bg-[#3D3A36] text-[#F0EFE9] border-t border-[#E8E2D0] h-12 flex flex-col transition-all duration-300 absolute bottom-0 w-full z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+            <div class="bg-[#2C2926] px-6 py-3 flex justify-between items-center border-b border-[#4A4641] flex-shrink-0">
+                <span class="text-sm font-mono text-[#98B4A6] font-bold">SQL Output Console</span>
+                <div class="flex space-x-3 items-center">
+                    <div class="relative inline-block">
+                        <button onclick="App.utils.copy()" id="btn-copy-sql" class="text-xs bg-[#98B4A6] hover:bg-[#86A395] text-white px-4 py-1.5 rounded-full transition font-bold">
+                            📋 複製 SQL
+                        </button>
+                        <span id="toast-copy-sql" class="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap bg-[#6B5E4F] text-white px-3 py-1 rounded-full text-xs opacity-0 shadow-lg pointer-events-none transition-all duration-300">✅ 已複製!</span>
+                    </div>
+                    <button onclick="App.utils.clear()" class="text-xs bg-[#5C564F] hover:bg-[#4A4540] text-white px-4 py-1.5 rounded-full transition font-bold">
+                        🗑️ 清除
+                    </button>
+                    <button onclick="document.getElementById('output-area').classList.toggle('h-64');document.getElementById('output-area').classList.toggle('h-12')" class="text-xs text-[#9CA38F] hover:text-white">
+                        🔽 收合/展開
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-auto p-6 relative bg-[#3D3A36]">
+                <code id="sql-result" class="code-block text-sm text-[#C8D6CF] block pb-8 leading-relaxed">-- 請在上方選擇功能並輸入參數...</code>
+            </div>
+        </div>
+    </main>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        const App = {
+            init: function() {
+                this.utils.updateTime();
+                setInterval(() => this.utils.updateTime(), 1000);
+                this.tabs.switch('invoice'); // Default tab
+                
+                // Init Sort Module
+                this.modules.sort.init();
+                
+                // Init Remark Color Preview
+                if (this.modules.remark && this.modules.remark.updateColorPreview) {
+                    this.modules.remark.updateColorPreview();
+                }
+            },
+
+            tabs: {
+                switch: function(id) {
+                    // Update Nav
+                    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                    document.getElementById(`nav-${id}`).classList.add('active');
+
+                    const titles = {
+                        'invoice': '補發票 SQL (Insert)',
+                        'orderno': '變更帳單編號',
+                        'payment': '變更付款方式', 
+                        'cancel': '取消作廢', 
+                        'machine': '變更結帳櫃台(Machine ID)', 
+                        'product': '工作單與標籤出單調整', 
+                        'sort': '更新商品顯示順序',
+                        'straw': '吸管尺寸設定',
+                        'remark': '商品專屬備註',
+                        'fixinvoice': '變更發票內對應的帳單編號',
+                        'stuck_invoice': '發票號碼卡住', 
+                        'others': '其他 SQL (常用維護)'
+                    };
+                    document.getElementById('current-module-title').innerText = titles[id];
+
+                    // Show Section
+                    document.querySelectorAll('.module-section').forEach(el => el.classList.add('hidden'));
+                    document.getElementById(`module-${id}`).classList.remove('hidden');
+
+                    // Clear Output
+                    App.utils.clear();
+                }
+            },
+
+            modules: {
+                // ... (Invoice, Orderno, Payment, Cancel, Machine, Product, Fixinvoice, Mobile, Sort, Straw, Others modules remain identical to previous versions) ...
+                invoice: {
+                    toggleCancel: function() {
+                        const isCancel = document.getElementById('inv_CancelInvoice').value === 'Y';
+                        document.getElementById('div_CancelCardNo').style.display = isCancel ? 'block' : 'none';
+                    },
+                    toggleCarrier: function() {
+                        const type = document.getElementById('inv_eInvoiceCarrierType').value;
+                        document.getElementById('inv_eInvoiceCarrierCode').style.display = (type === '3') ? 'block' : 'none';
+                    },
+                    getSQL: function() {
+                        const get = (id) => document.getElementById(id).value.trim();
+                        const fields = [
+                            'inv_OrderNo', 'inv_InvoiceNo', 'inv_CheckoutShift', 'inv_EmpCard', 'inv_EmpCardName',
+                            'inv_CheckoutTime', 'inv_TotalAmount', 'inv_TotalAmountBeforeTax', 'inv_Tax'
+                        ];
+                        
+                        if (fields.some(id => !get(id))) {
+                            alert('請填寫所有標示 * 的必填欄位');
+                            return null;
+                        }
+                        
+                        if (!App.utils.validateLength(get('inv_OrderNo'), 12, '帳單編號 (OrderNo)')) return null;
+                        if (!App.utils.validateLength(get('inv_InvoiceNo'), 10, '發票號碼 (InvoiceNo)')) return null;
+
+                        const checkoutTime = get('inv_CheckoutTime');
+                        const carrierType = get('inv_eInvoiceCarrierType');
+                        const carrierCode = carrierType === '3' ? get('inv_eInvoiceCarrierCode') : '';
+
+                        const esc = App.utils.escapeSql;
+                        const values = [
+                            `'${esc(get('inv_OrderNo'))}'`, `'${esc(get('inv_InvoiceNo'))}'`, `'${esc(get('inv_CheckoutShift'))}'`,
+                            `'${esc(get('inv_EmpCard'))}'`, `'${esc(get('inv_EmpCardName'))}'`, `'${esc(checkoutTime)}'`,
+                            `'${esc(get('inv_CancelInvoice'))}'`, `'${esc(get('inv_CancelCardNo'))}'`, `'${esc(get('inv_SendServer'))}'`,
+                            `'${esc(get('inv_MachineID'))}'`, get('inv_TotalAmount'), "'1'", `'${esc(get('inv_CompanyID'))}'`,
+                            get('inv_TotalAmountBeforeTax'), get('inv_Tax'), `'${esc(carrierType)}'`, `'${esc(carrierCode)}'`,
+                            "''", `'${esc(checkoutTime)}'`, `'${esc(get('inv_CheckoutDate'))}'`, `'${esc(get('inv_FromKiosk'))}'`,
+                            "''", "''", "''"
+                        ];
+
+                        return `INSERT INTO orderinvoice VALUES (${values.join(',')})\nGO`;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'invoice_insert.sql', type);
+                    }
+                },
+                orderno: {
+                    toggleFields: function() {
+                        const isToday = document.getElementById('orderno_isToday').value === '是';
+                        document.getElementById('orderno_extraFields').style.display = isToday ? 'none' : 'grid';
+                    },
+                    getSQL: function() {
+                        const isToday = document.getElementById('orderno_isToday').value === '是';
+                        const oldNo = document.getElementById('orderno_old').value.trim();
+                        const newNo = document.getElementById('orderno_new').value.trim();
+
+                        if (!oldNo || !newNo) { alert('請填寫新舊單號'); return null; }
+                        
+                        if (!App.utils.validateLength(oldNo, 12, '舊單號 (Old OrderNo)')) return null;
+                        if (!App.utils.validateLength(newNo, 12, '新單號 (New OrderNo)')) return null;
+
+                        const esc = App.utils.escapeSql;
+                        let sql = '';
+                        if (isToday) {
+                            sql = `
+update OrderCancelReason set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderMaterial set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderPayment set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderDetail set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderLists set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderInvoice set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update Orderlists set invoiceno='Y', startUpload='N', sendserver='N' where orderno='${esc(newNo)}'
+GO`.trim();
+                        } else {
+                            const get = (id) => document.getElementById(id).value.trim();
+                            const shift = get('orderno_shift');
+                            const tableName = get('orderno_tableName');
+                            const orderTime = get('orderno_orderTime');
+                            const checkoutTime = get('orderno_checkoutTime');
+                            const checkoutDate = get('orderno_checkoutDate');
+                            const createDate = get('orderno_createDate');
+                            
+                            if(!shift || !checkoutTime) { alert('非當日單請完整填寫欄位'); return null; }
+
+                            sql = `
+update OrderCancelReason set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderMaterial set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}'
+GO
+update OrderLists set orderno='${esc(newNo)}', Shift='${esc(shift)}', TableName='${esc(tableName)}', OrderTime='${esc(orderTime)}', CheckoutShift='${esc(shift)}', CheckoutTime='${esc(checkoutTime)}', CheckoutDate='${esc(checkoutDate)}', invoiceno='Y', sendserver='N', startUpload='N' where orderno='${esc(oldNo)}'
+GO
+update OrderPayment set orderno='${esc(newNo)}', CreateDate='${esc(createDate)}', CreateShift='${esc(shift)}' where orderno='${esc(oldNo)}'
+GO
+update OrderDetail set orderno='${esc(newNo)}' where orderno='${esc(oldNo)}' --依需求可能需更新OrderTime
+GO
+update OrderInvoice set orderno='${esc(newNo)}', CheckoutShift='${esc(shift)}', CheckoutTime='${esc(checkoutTime)}', CheckoutDate='${esc(checkoutDate)}' where orderno='${esc(oldNo)}'
+GO`.trim();
+                        }
+                        return sql;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'orderno_update.sql', type);
+                    }
+                },
+                payment: {
+                    allOptions: [],
+                    init: function() {
+                        const select = document.getElementById('pay_kind');
+                        if (select && this.allOptions.length === 0) {
+                            this.allOptions = Array.from(select.options).map(opt => ({
+                                value: opt.value,
+                                text: opt.text
+                            }));
+                        }
+                    },
+                    filterPaymentOptions: function() {
+                        this.init();
+                        const input = document.getElementById('pay_kind_search');
+                        const select = document.getElementById('pay_kind');
+                        const filter = input.value.toLowerCase();
+                        select.innerHTML = '';
+                        this.allOptions.forEach(opt => {
+                            if (opt.text.toLowerCase().includes(filter) || opt.value.toLowerCase().includes(filter)) {
+                                const el = document.createElement('option');
+                                el.value = opt.value;
+                                el.innerText = opt.text;
+                                select.appendChild(el);
+                            }
+                        });
+                        this.toggleAlias();
+                    },
+                    toggleAlias: function() {
+                        const val = document.getElementById('pay_kind').value;
+                        const needsAlias = ['6', '41'].includes(val);
+                        document.getElementById('div_alias').style.display = needsAlias ? 'block' : 'none';
+                    },
+                    getSQL: function() {
+                        const kind = document.getElementById('pay_kind').value;
+                        const orderNos = document.getElementById('pay_ordernos').value.trim();
+                        const invoiceNos = document.getElementById('pay_invoicenos').value.trim();
+                        const seqNo = document.getElementById('pay_seqno').value.trim();
+                        const alias = document.getElementById('pay_alias').value.trim();
+
+                        if (!kind || !orderNos || !invoiceNos) { alert('請填寫付款方式、訂單編號與發票號碼'); return null; }
+                        
+                        if (!App.utils.validateLength(orderNos, 12, '訂單編號', true)) return null;
+                        if (!App.utils.validateLength(invoiceNos, 10, '發票號碼', true)) return null;
+
+                        const orderList = orderNos.split(/[,，\s]+/).map(x=>`'${x}'`).join(',');
+                        const invoiceList = invoiceNos.split(/[,，\s]+/).map(x=>`'${x}'`).join(',');
+                        const seqCond = seqNo ? ` AND seqno='${seqNo}'` : '';
+                        const aliasSQL = (alias && ['6','41'].includes(kind)) ? `, AliasName='${alias}'` : '';
+
+                        return `
+update orderpayment set paymentkind=${kind}${aliasSQL} where orderno in (${orderList})${seqCond}
+GO
+update orderinvoicepayment set paymentkind=${kind}${aliasSQL} where invoiceno in (${invoiceList})${seqCond}
+GO
+update orderinvoice set sendserver='N', StartUpload='N' where orderno in (${orderList})
+GO
+update orderlists set sendserver='N', StartUpload='N' where orderno in (${orderList})
+GO`.trim();
+                    },
+                    generatePay: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'payment_update.sql', type);
+                    }
+                },
+                cancel: {
+                    getSQL: function() {
+                        const orderNos = document.getElementById('cancel_ordernos').value.trim();
+                        const invoiceNos = document.getElementById('cancel_invoicenos').value.trim();
+                        
+                        if (!orderNos || !invoiceNos) { alert('請填寫訂單與發票號碼'); return null; }
+                        
+                        if (!App.utils.validateLength(orderNos, 12, '訂單編號', true)) return null;
+                        if (!App.utils.validateLength(invoiceNos, 10, '發票號碼', true)) return null;
+
+                        const orderList = orderNos.split(/[,，\s]+/).map(x=>`'${x}'`).join(',');
+                        const invoiceList = invoiceNos.split(/[,，\s]+/).map(x=>`'${x}'`).join(',');
+
+                        return `
+update OrderInvoice set cancelinvoice='N', sendserver='N', startUpload='N' where invoiceno in (${invoiceList})
+GO
+update orderlists set invoiceno='Y', sendserver='N', cancelorder='N', cancelcardno='', startUpload='N' where orderno in (${orderList})
+GO`.trim();
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'cancel_invoice.sql', type);
+                    }
+                },
+                machine: {
+                    toggleMode: function() {
+                        const mode = document.querySelector('input[name="mac_mode"]:checked').value;
+                        const hint = document.getElementById('mac_hint');
+                        const input = document.getElementById('mac_input');
+                        if (mode === 'month') {
+                            input.placeholder = "2601;2602";
+                            hint.innerText = "請輸入訂單月份前綴 (4碼)";
+                        } else if (mode === 'date') {
+                            input.placeholder = "250701;250702";
+                            hint.innerText = "請輸入訂單日期前綴 (6碼)";
+                        } else {
+                            input.placeholder = "251218A00001;251218A00002";
+                            hint.innerText = "請輸入完整訂單編號";
+                        }
+                    },
+                    getSQL: function() {
+                        const oldId = document.getElementById('mac_old').value;
+                        const newId = document.getElementById('mac_new').value;
+                        const inputVal = document.getElementById('mac_input').value.trim();
+                        const mode = document.querySelector('input[name="mac_mode"]:checked').value;
+                        
+                        if (!inputVal) { alert('請輸入訂單編號或前綴'); return null; }
+                        
+                        if (mode === 'list') {
+                            if (!App.utils.validateLength(inputVal, 12, '完整訂單編號', true)) return null;
+                        }
+
+                        const list = inputVal.split(/[,;，\s]+/).filter(x => x).map(x => `'${x}'`).join(',');
+                        let where = '';
+                        if (oldId === 'empty') where = "MachineID = ''";
+                        else if (oldId !== '') where = `MachineID = '${oldId}'`;
+                        let orderPart = '';
+                        if (mode === 'month') {
+                            orderPart = `left(orderno,4) in (${list})`;
+                        } else if (mode === 'date') {
+                            orderPart = `left(orderno,6) in (${list})`;
+                        } else {
+                            orderPart = `orderno in (${list})`;
+                        }
+                        where = where ? `${where} AND ${orderPart}` : orderPart;
+                        const newVal = newId ? `'${newId}'` : "''";
+                        return `
+update orderlists set MachineID = ${newVal} where ${where}
+GO
+update orderinvoice set MachineID = ${newVal} where ${where}
+GO
+update tmpOrderLists set MachineID = ${newVal} where ${where}
+GO`.trim();
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'machine_id_update.sql', type);
+                    }
+                },
+                product: {
+                    switchTab: function(tab) {
+                        const isReceipt = tab === 'receipt';
+                        document.getElementById('prod-receipt-panel').style.display = isReceipt ? 'block' : 'none';
+                        document.getElementById('prod-label-panel').style.display = isReceipt ? 'none' : 'block';
+                        const btnR = document.getElementById('tab-prod-receipt');
+                        const btnL = document.getElementById('tab-prod-label');
+                        if(isReceipt) {
+                            btnR.className = 'font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition';
+                            btnL.className = 'font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition';
+                        } else {
+                            btnL.className = 'font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition';
+                            btnR.className = 'font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition';
+                        }
+                    },
+                    addInput: function(type) {
+                        const container = document.getElementById(`prod_${type}_container`);
+                        const div = document.createElement('div');
+                        div.className = 'flex gap-2';
+                        if(type === 'loc') {
+                            div.innerHTML = `<input type="text" name="prod_loc" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="例如：1"><button onclick="App.modules.product.removeInput(this)" class="px-3 text-[#9CA38F] hover:text-red-400">➖</button>`;
+                        } else {
+                            div.innerHTML = `<select name="prod_type" class="w-full border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]"><option value="1">1 = 一項一單</option><option value="2">2 = 一類一單</option><option value="3">3 = 一機一單</option><option value="4">4 = 一套一單</option></select><button onclick="App.modules.product.removeInput(this)" class="px-3 text-[#9CA38F] hover:text-red-400">➖</button>`;
+                        }
+                        container.appendChild(div);
+                    },
+                    removeInput: function(btn) {
+                        btn.parentElement.remove();
+                    },
+                    getValues: function(name) {
+                        const els = document.getElementsByName(name);
+                        let arr = [];
+                        els.forEach(el => { if(el.value.trim()) arr.push(el.value.trim()); });
+                        return arr;
+                    },
+                    getReceiptSQL: function() {
+                        const locs = this.getValues('prod_loc');
+                        const types = this.getValues('prod_type');
+                        const cats = document.getElementById('prod_receipt_cats').value.trim();
+                        const printCat = document.getElementById('prod_printcat').value.trim();
+                        if(locs.length === 0 && types.length === 0 && !printCat) {
+                            alert('請至少輸入一筆出單機、出單類別或出單類別編號');
+                            return null;
+                        }
+                        let where = '';
+                        if (cats) {
+                            const catList = cats.split(/[,，\n\s]+/).filter(x=>x).map(x => `'${x}'`).join(',');
+                            where = ` WHERE cat_ID IN (${catList})`;
+                        }
+                        let sql = '';
+                        if (locs.length > 0) sql += `UPDATE product SET location = '${locs.join(";")}'${where}\nGO\n`;
+                        if (types.length > 0) sql += `UPDATE product SET sendordertype = '${types.join(";")}'${where}\nGO\n`;
+                        if (printCat) sql += `UPDATE product SET PrintCat_ID = '${printCat}'${where}\nGO\n`;
+                        return sql.trim();
+                    },
+                    generateReceipt: function() {
+                        const sql = this.getReceiptSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    getLabelSQL: function() {
+                        const mode = document.getElementById('prod_label_mode').value;
+                        const printer = document.getElementById('prod_printer_id').value.trim();
+                        const out = document.getElementById('prod_label_outside').value;
+                        const ins = document.getElementById('prod_label_inside').value;
+                        const take = document.getElementById('prod_label_takeout').value;
+                        const cats = document.getElementById('prod_label_cats').value.trim();
+                        let sets = [];
+                        if(mode) sets.push(`LabelPrintMode = '${mode}'`);
+                        if(printer) sets.push(`Printer_ID = '${printer}'`);
+                        if(out) sets.push(`OutsideLabel = '${out}'`);
+                        if(ins) sets.push(`InsideLabel = '${ins}'`);
+                        if(take) sets.push(`TakeOutLabel = '${take}'`);
+                        if(sets.length === 0) {
+                            alert('請至少修改一項設定');
+                            return null;
+                        }
+                        let where = '';
+                        if (cats) {
+                            const catList = cats.split(/[,，\n\s]+/).filter(x=>x).map(x => `'${x}'`).join(',');
+                            where = ` WHERE cat_ID IN (${catList})`;
+                        }
+                        return `UPDATE product SET ${sets.join(', ')}${where}\nGO`;
+                    },
+                    generateLabel: function() {
+                        const sql = this.getLabelSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(subtype, fileType) {
+                        let sql = '';
+                        if (subtype === 'receipt') sql = this.getReceiptSQL();
+                        else if (subtype === 'label') sql = this.getLabelSQL();
+                        if (sql) App.utils.downloadSQL(sql, `product_${subtype}_update.sql`, fileType);
+                    }
+                },
+                fixinvoice: {
+                    toggle: function() {
+                        const checked = document.getElementById('fix_hasCarrier').checked;
+                        document.getElementById('fix_carrier_div').style.display = checked ? 'block' : 'none';
+                    },
+                    getSQL: function() {
+                        const orderNo = document.getElementById('fix_orderno').value.trim();
+                        const invNo = document.getElementById('fix_invoiceno').value.trim();
+                        
+                        if (!orderNo || !invNo) { alert('請輸入單號'); return null; }
+                        
+                        if (!App.utils.validateLength(orderNo, 12, '正確的帳單編號 (OrderNo)')) return null;
+                        if (!App.utils.validateLength(invNo, 10, '要修正的發票號碼 (InvoiceNo)')) return null;
+
+                        let sql = `update OrderInvoice set OrderNo = '${orderNo}' where InvoiceNo = '${invNo}'\nGO`;
+
+                        if (document.getElementById('fix_hasCarrier').checked) {
+                            const code = document.getElementById('fix_carrierCode').value.trim();
+                            if(!code) { alert('請輸入載具號碼'); return null; }
+                            sql += `\nupdate OrderInvoice set eInvoiceCarrierType = '3', eInvoiceCarrierCode = '${code}' where InvoiceNo = '${invNo}'\nGO`;
+                        }
+                        return sql;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'invoice_fix.sql', type);
+                    }
+                },
+                stuck_invoice: {
+                    getSQL: function() {
+                        const orderNo = document.getElementById('stuck_orderno').value.trim();
+                        if (!orderNo) { alert('請輸入帳單編號'); return null; }
+                        
+                        if (!App.utils.validateLength(orderNo, 12, '帳單編號 (OrderNo)')) return null;
+                        
+                        return `DELETE orderinvoice WHERE orderno = '${orderNo}';\nGO\nUPDATE orderlists SET invoiceno = 'N', sendserver = 'N', startUpload = 'N' WHERE orderno = '${orderNo}';\nGO`;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'stuck_invoice_reset.sql', type);
+                    }
+                },
+                mobile: {
+                    getSQL: function() {
+                        const status = document.getElementById('mob_status').value;
+                        const srcs = document.getElementById('mob_srcs').value.trim();
+                        if (!srcs) { alert('請輸入來源單號'); return null; }
+                        const list = srcs.split(/[,，\s\n]+/).filter(x=>x);
+                        return list.map(no => `update MobileOrderLists set MobileOrderStatus = ${status} where MobileOrderSrcNo = '${no}'\nGO`).join('\n');
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'mobile_order_reset.sql', type);
+                    }
+                },
+                sort: {
+                    rowCount: 0,
+                    currentMode: 'product',
+                    init: function() {
+                        if (this.rowCount === 0) this.addRow();
+                    },
+                    switchMode: function() {
+                        this.currentMode = document.querySelector('input[name="sort_mode"]:checked').value;
+                        document.getElementById("sort_inputs_container").innerHTML = "";
+                        this.rowCount = 0;
+                        this.addRow();
+                    },
+                    addRow: function() {
+                        this.rowCount++;
+                        const container = document.getElementById("sort_inputs_container");
+                        const div = document.createElement("div");
+                        div.className = "flex gap-4 mb-2";
+                        div.id = "row_" + this.rowCount;
+                        
+                        const placeholder = this.currentMode === "product" ? "商品編號 (例如 A001)" : "類別編號 (例如 A)";
+                        
+                        div.innerHTML = `
+                            <input type="text" class="sort-id w-1/2 border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="${placeholder}">
+                            <input type="number" class="sort-seq w-1/2 border border-[#E8E2D0] rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#98B4A6]" placeholder="排序順序 (例如 1)">
+                        `;
+                        container.appendChild(div);
+                    },
+                    removeRow: function() {
+                        if (this.rowCount > 1) {
+                            const lastRow = document.getElementById("row_" + this.rowCount);
+                            lastRow.remove();
+                            this.rowCount--;
+                        }
+                    },
+                    getSQL: function() {
+                        const ids = document.querySelectorAll(".sort-id");
+                        const seqs = document.querySelectorAll(".sort-seq");
+                        let sql = "";
+                        let hasData = false;
+
+                        for (let i = 0; i < ids.length; i++) {
+                            const id = ids[i].value.trim();
+                            const seq = seqs[i].value.trim();
+
+                            if (id !== "" && seq !== "") {
+                                hasData = true;
+                                if(this.currentMode === "product"){
+                                    sql += `UPDATE Product SET DisplaySeq = '${seq}' WHERE Pro_ID = '${id}'\nGO\n`;
+                                } else {
+                                    sql += `UPDATE Category SET DisplaySeq = '${seq}' WHERE Cat_ID = '${id}'\nGO\n`;
+                                }
+                            }
+                        }
+
+                        if (!hasData) {
+                            alert("請至少填寫一筆完整資料！");
+                            return null;
+                        }
+                        return sql;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'update_sort_order.sql', type);
+                    }
+                },
+                straw: {
+                    toggleInput: function() {
+                        const mode = document.querySelector('input[name="straw_mode"]:checked').value;
+                        document.getElementById("straw_product_input").style.display = mode === "product" ? "block" : "none";
+                        document.getElementById("straw_category_input").style.display = mode === "category" ? "block" : "none";
+                    },
+                    getSQL: function() {
+                        const straw = document.getElementById("straw_size").value;
+                        const mode = document.querySelector('input[name="straw_mode"]:checked').value;
+                        let sql = "";
+
+                        if (mode === "product") {
+                            const raw = document.getElementById("straw_product_ids").value.trim();
+                            if(!raw) { alert("請輸入商品編號"); return null; }
+                            const ids = raw.split(/[,，\s]+/).map(id => `'${id.trim()}'`).join(",");
+                            sql = `UPDATE Product SET Straw='${straw}' WHERE Pro_ID IN (${ids})\nGO`;
+                        } else if (mode === "category") {
+                            const raw = document.getElementById("straw_category_ids").value.trim();
+                            if(!raw) { alert("請輸入類別編號"); return null; }
+                            const ids = raw.split(/[,，\s]+/).map(id => `'${id.trim()}'`).join(",");
+                            sql = `UPDATE Product SET Straw='${straw}' WHERE Cat_ID IN (${ids})\nGO`;
+                        } else {
+                            sql = `UPDATE Product SET Straw='${straw}'\nGO`;
+                        }
+                        return sql;
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'update_straw_size.sql', type);
+                    }
+                },
+                
+                // 12. Remark Module (New)
+                remark: {
+                    updateColorPreview: function() {
+                        const colorInput = document.getElementById('remark_color').value.trim();
+                        const previewEl = document.getElementById('remark_color_preview');
+                        
+                        // Parse integer color to hex
+                        let hexColor = '#F0F0F0'; // Default fallback
+                        
+                        if (colorInput !== '' && !isNaN(colorInput)) {
+                            try {
+                                hexColor = App.utils.intToHex(parseInt(colorInput));
+                            } catch(e) {
+                                // Keep default if parsing fails
+                            }
+                        }
+                        
+                        previewEl.style.backgroundColor = hexColor;
+                    },
+                    getSQL: function() {
+                        const proId = document.getElementById('remark_proId').value.trim();
+                        const rawRemarks = document.getElementById('remark_remarks').value.trim();
+                        const groupName = document.getElementById('remark_groupName').value.trim();
+                        const groupNo = document.getElementById('remark_groupNo').value.trim();
+                        const mustChoose = document.getElementById('remark_mustChoose').value;
+                        const mobile = document.getElementById('remark_mobile').value;
+                        // 取得使用者輸入的顏色代碼，若無則使用預設值
+                        const remarkColor = document.getElementById('remark_color').value.trim() || '-986896';
+
+                        if (!proId || !rawRemarks || !groupName || !groupNo) {
+                            alert("請填寫所有標示 * 的必填欄位！");
+                            return null;
+                        }
+
+                        const remarks = rawRemarks.split('\n').filter(r => r.trim() !== '');
+                        if (remarks.length === 0) {
+                            alert("請至少輸入一個備註名稱！");
+                            return null;
+                        }
+
+                        let seqStart = 1;
+
+                        let sql = '';
+                        remarks.forEach((r, i) => {
+                            sql += `INSERT Product_Remark (Pro_ID, Remark, IsUseInMobileOrder, [Group], RemarkColor, DisplaySeq, GroupNeedChooseForMobile, GroupName, IsDefault)\n`;
+                            sql += `VALUES ('${proId}','${r}','${mobile}','${groupNo}','${remarkColor}','${seqStart + i}','${mustChoose}','${groupName}','N');\nGO\n\n`;
+                        });
+
+                        return sql.trim();
+                    },
+                    generate: function() {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.render(sql);
+                    },
+                    download: function(type) {
+                        const sql = this.getSQL();
+                        if(sql) App.utils.downloadSQL(sql, 'product_remark_insert.sql', type);
+                    }
+                },
+
+                // 8. Others
+                others: {
+                    switchTab: function(tab) {
+                        const allToasts = document.querySelectorAll('.toast-bubble');
+                        allToasts.forEach(t => {
+                            t.classList.remove('toast-bubble');
+                            t.classList.remove('opacity-0');
+                            void t.offsetWidth;
+                            t.classList.add('opacity-0');
+                        });
+                        const isCleanup = tab === 'cleanup';
+                        document.getElementById('others-cleanup-panel').style.display = isCleanup ? 'grid' : 'none';
+                        document.getElementById('others-system-panel').style.display = isCleanup ? 'none' : 'grid';
+                        const btnC = document.getElementById('tab-others-cleanup');
+                        const btnS = document.getElementById('tab-others-system');
+                        if(isCleanup) {
+                            btnC.className = 'font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition';
+                            btnS.className = 'font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition';
+                        } else {
+                            btnS.className = 'font-bold text-[#98B4A6] border-b-2 border-[#98B4A6] pb-1 transition';
+                            btnC.className = 'font-bold text-[#8C8475] pb-1 hover:text-[#98B4A6] transition';
+                        }
+                    },
+                    getSQL: function(id, param) {
+                        let sql = '';
+                        if (id === 1) sql = `update Level_Control set F41='N',F411='N',F412='N',F413='N',F414='N',F427='N',F431='N',F432='N',F433='N',F434='N',F435='N',F436='N',F437='N',F438='N',F439='N',F54='N',F4211='N' where Levelkey <> 'A'\nGO`;
+                        else if (id === 2) sql = `delete from NewExpense\nGO`;
+                        else if (id === 3) sql = `delete from Member\nGO\ndelete from MemberCard\nGO\ndelete from Transaction_Storevalue\nGO\ndelete from Transaction_Bonus\nGO`;
+                        else if (id === 4) sql = `delete tmpOrderLists\nGO\ndelete tmpOrderDetail\nGO`;
+                        else if (id === 5) sql = `update tablestate set PlusServiceFee='${param}'\nGO`;
+                        else if (id === 6) sql = `update product set ServiceCharge='${param}'\nGO`;
+                        else if (id === 7) { 
+                            const items = document.getElementById('expense_items').value.trim();
+                            if (!items) { alert('請輸入項目名稱'); return null; }
+                            const arr = items.split(/[,，\s]+/).filter(x=>x);
+                            const list = arr.map(x => `'${App.utils.escapeSql(x)}'`).join(',');
+                            sql = arr.length > 1 ? `delete from NewExpense where Expense_Item in (${list})\nGO` : `delete from NewExpense where Expense_Item=${list}\nGO`;
+                        } else if (id === 8) { 
+                            const date = document.getElementById('expense_date').value;
+                            if (!date) { alert('請選擇日期'); return null; }
+                            const formattedDate = date.replace(/-/g, '/');
+                            sql = `delete from NewExpense where Record_Date <= '${formattedDate}'\nGO`;
+                        } else if (id === 9) sql = `update Product set IncludeBillItemCount ='${param}'\nGO`;
+                        else if (id === 10) sql = `update Product set IncludeRanking ='${param}'\nGO`;
+                        else if (id === 11) sql = `update Product set BeOnePlusOne ='${param}'\nGO`;
+                        else if (id === 12) sql = `delete from PlusFlavor\nGO`;
+                        else if (id === 13) sql = `delete FROM Member\nGO`;
+                        else if (id === 14) sql = `delete product_sugar\nGO`;
+                        return sql;
+                    },
+                    copy: function(id, param) {
+                        const sql = this.getSQL(id, param);
+                        if(sql) {
+                            App.utils.render(sql);
+                            try {
+                                navigator.clipboard.writeText(sql).then(() => showToast(id, param))
+                                .catch(err => { fallbackCopyTextToClipboard(sql); showToast(id, param); });
+                            } catch (err) { fallbackCopyTextToClipboard(sql); showToast(id, param); }
+                        }
+                    },
+                    download: function(id, type, param) {
+                        const sql = this.getSQL(id, param);
+                        if(sql) {
+                            let filename = 'common_sql.sql';
+                            let suffix = param ? `_${param}` : '';
+                            if (id===1) filename = 'reset_level_control.sql';
+                            else if (id===2) filename = 'clear_all_expense.sql';
+                            else if (id===3) filename = 'clear_member_data.sql';
+                            else if (id===4) filename = 'clear_tmp_orders.sql';
+                            else if (id===5) filename = `update_service_fee_table${suffix}.sql`;
+                            else if (id===6) filename = `update_service_fee_product${suffix}.sql`;
+                            else if (id===7) filename = 'clear_expense_by_item.sql';
+                            else if (id===8) filename = 'clear_expense_by_date.sql';
+                            else if (id===9) filename = `update_bill_count${suffix}.sql`;
+                            else if (id===10) filename = `update_ranking${suffix}.sql`;
+                            else if (id===11) filename = `update_one_plus_one${suffix}.sql`;
+                            else if (id===12) filename = 'clear_plus_flavor.sql';
+                            else if (id===13) filename = 'clear_member.sql';
+                            else if (id===14) filename = 'clear_product_sugar.sql';
+                            App.utils.downloadSQL(sql, filename, type);
+                        }
+                    }
+                }
+            },
+
+            utils: {
+                updateTime: function() {
+                    const now = new Date();
+                    document.getElementById('system-time').innerText = now.toLocaleString('zh-TW', { hour12: false });
+                },
+                render: function(sql) {
+                    const el = document.getElementById('sql-result');
+                    el.innerText = sql;
+                    const area = document.getElementById('output-area');
+                    
+                    // Show the output area automatically when rendering
+                    area.classList.remove('h-12');
+                    area.classList.add('h-64');
+                    
+                    el.scrollIntoView({ behavior: 'smooth' });
+                },
+                clear: function() {
+                    document.getElementById('sql-result').innerText = '-- 等待產生...';
+                },
+                validateLength: function(val, exactLength, fieldName, isMultiple = false) {
+                    if (!val) return true; // Empty case is handled by existing check
+                    if (isMultiple) {
+                        const items = val.split(/[,;，\s]+/).filter(x => x);
+                        for (let item of items) {
+                            if (item.length !== exactLength) {
+                                alert(`${fieldName} 中的「${item}」長度不正確，必須剛好為 ${exactLength} 碼！`);
+                                return false;
+                            }
+                        }
+                    } else {
+                        if (val.length !== exactLength) {
+                            alert(`${fieldName} 長度不正確，必須剛好為 ${exactLength} 碼！(目前輸入了 ${val.length} 碼)`);
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                copy: function() {
+                    const text = document.getElementById('sql-result').innerText;
+                    if (!text || text.startsWith('--')) return;
+                    
+                    const doToast = () => {
+                        const toast = document.getElementById('toast-copy-sql');
+                        if (toast) {
+                            toast.classList.remove('opacity-0', 'toast-bubble');
+                            void toast.offsetWidth;
+                            toast.classList.add('toast-bubble');
+                        }
+                    };
+                    try {
+                        navigator.clipboard.writeText(text).then(doToast)
+                        .catch(err => { fallbackCopyTextToClipboard(text); doToast(); });
+                    } catch (err) {
+                        fallbackCopyTextToClipboard(text);
+                        doToast();
+                    }
+                },
+                escapeSql: function(str) {
+                    if (str === null || str === undefined) return '';
+                    return String(str).replace(/'/g, "''");
+                },
+                downloadSQL: function(content, filename, type) {
+                    let blob;
+                    if (type === 'win7') {
+                        // UTF-16 LE with BOM (FF FE)
+                        const bom = new Uint8Array([0xFF, 0xFE]);
+                        const strLen = content.length;
+                        const buffer = new ArrayBuffer(strLen * 2);
+                        const view = new Uint16Array(buffer);
+                        for (let i = 0; i < strLen; i++) {
+                            view[i] = content.charCodeAt(i);
+                        }
+                        blob = new Blob([bom, buffer], { type: 'text/plain;charset=utf-16le' });
+                    } else {
+                        // UTF-8 with BOM (EF BB BF)
+                        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+                        blob = new Blob([bom, content], { type: 'text/plain;charset=utf-8' });
+                    }
+
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+                // Helper to convert Windows Color Int to CSS Hex
+                intToHex: function(intColor) {
+                    // Windows COLORREF is typically 0x00bbggrr, but can be negative in .NET/VB
+                    // First, get the unsigned 32-bit value
+                    let uInt = (intColor >>> 0) & 0xFFFFFF; // Extract only the 24 RGB bits
+                    
+                    // Windows stores colors as BGR, we need RGB for CSS
+                    let b = (uInt >> 16) & 0xFF;
+                    let g = (uInt >> 8) & 0xFF;
+                    let r = uInt & 0xFF;
+                    
+                    // Note: Depending on the specific system, the negative int might just be ARGB
+                    // Let's handle the typical .NET Color.ToArgb() negative value
+                    if (intColor < 0) {
+                        // .NET ARGB: AARRGGBB
+                        let argb = (intColor >>> 0);
+                        r = (argb >> 16) & 0xFF;
+                        g = (argb >> 8) & 0xFF;
+                        b = argb & 0xFF;
+                    }
+
+                    // Convert to hex string
+                    let rHex = r.toString(16).padStart(2, '0');
+                    let gHex = g.toString(16).padStart(2, '0');
+                    let bHex = b.toString(16).padStart(2, '0');
+                    
+                    return `#${rHex}${gHex}${bHex}`;
+                }
+            }
+        };
+
+        // Fallback function for copying text
+        function fallbackCopyTextToClipboard(text) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                var msg = successful ? 'successful' : 'unsuccessful';
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // Helper for toasts in others module
+        function showToast(id, param) {
+            let toastId = `toast-${id}`;
+            if(param) toastId += `-${param}`;
+            const toast = document.getElementById(toastId);
+            if(toast) {
+                // Reset animation by removing class, reflowing, then adding again
+                toast.classList.remove('opacity-0'); 
+                toast.classList.remove('toast-bubble');
+                void toast.offsetWidth; // Trigger reflow
+                toast.classList.add('toast-bubble');
+            }
+        }
+
+        window.onload = function() {
+            App.init();
+        }
+    </script>
+</body>
+</html>
